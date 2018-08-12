@@ -87,7 +87,7 @@ struct
 
 struct
 {
-	Sound spray, click, dig, splash, exhume, plant;
+	Sound spray, click, dig, splash, exhume, plant, nope;
 } sounds;
 
 static ivec2 tool_offsets[7] =
@@ -199,8 +199,7 @@ void game_init()
 	sounds.spray = LoadSound("data/spray.wav");
 	sounds.exhume = LoadSound("data/exhume.wav");
 	sounds.plant = LoadSound("data/plant.wav");
-
-	fprintf(stderr, "IMPLEMENT \"Can't buy\"-sound!\n");
+	sounds.nope = LoadSound("data/nope.wav");
 
 	acreTarget = CreateRenderTarget(69 + 65, 59 + 55);
 
@@ -542,7 +541,7 @@ void pot_click(ivec2 pos)
 
 	emit(max(1, int(0.1 * size.x * size.y)), [&](Particle & p)
 	{
-		p.pos = vec2(clicked->position - stage.origin) + vec2(rng(0.0f,float(size.x)), rng(0.0f,float(size.y)));
+		p.pos = vec2(clicked->position - stage.origin) + vec2(rng(0.0f,float(size.x)), rng(0.0f,float(size.y)        ));
 		p.vel = 0.1f * normalize(vec2(rng(-1.0, 1.0), rng(0.0, 1.0)));
 		p.color = Color { GREEN };
 		p.lifespan = rng(40, 90);
@@ -653,7 +652,7 @@ void game_do_event(SDL_Event const & ev)
 						}
 						else
 						{
-							fprintf(stderr, "Play can't buy-sound here!\n");
+							PlaySound(sounds.nope);
 						}
 						break;
 					}
