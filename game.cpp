@@ -110,6 +110,17 @@ static bool is_scrolling;
 
 static std::vector<Particle> particles;
 
+static int32_t player_money = 5;
+
+static std::array<int, plantTypes.size()> buyprice =
+{
+	4, 6, 9
+};
+static std::array<int, plantTypes.size()> sellprice =
+{
+	5, 8, 12
+};
+
 static void emit(int count, std::function<void(Particle&)> init)
 {
 	for(int i = 0; i < count; i++)
@@ -138,7 +149,7 @@ void game_load()
 	fread(&magic, sizeof magic, 1, f);
 	if(magic != 0xBADEAFFE)
 		die("Failed to load game: Is not a badeaffe!");
-
+	fread(&player_money, sizeof player_money, 1, f);
 	fread(&count, sizeof count, 1, f);
 	for(uint32_t i = 0; i < count; i++)
 	{
@@ -157,7 +168,9 @@ void game_save()
 
 	uint32_t count = uint32_t(plants.size());
 	uint32_t magic = 0xBADEAFFE;
+
 	fwrite(&magic, sizeof magic, 1, f);
+	fwrite(&player_money, sizeof player_money, 1, f);
 	fwrite(&count, sizeof count, 1, f);
 
 	fwrite(plants.data(), sizeof(Plant), plants.size(), f);
@@ -184,6 +197,8 @@ void game_init()
 	sounds.spray = LoadSound("data/spray.wav");
 	sounds.exhume = LoadSound("data/exhume.wav");
 	sounds.plant = LoadSound("data/plant.wav");
+
+	fprintf(stderr, "IMPLEMENT \"Can't buy\"-sound!\n");
 
 	acreTarget = CreateRenderTarget(69 + 65, 59 + 55);
 
@@ -311,18 +326,6 @@ void game_init()
 		game_load();
 	else
 		plants.clear();
-	/*
-	plants.push_back(Plant { -1, ivec2(10, 20), 0.0, 0.0 });
-	plants.push_back(Plant {
-		0, ivec2(20, 20), 0.0, 3.0
-	});
-	plants.push_back(Plant {
-		1, ivec2(30, 20), 0.0, 4.0
-	});
-	plants.push_back(Plant {
-		2, ivec2(40, 20), 0.0, 2.0
-	});
-	*/
 }
 
 void game_shutdown()
@@ -452,6 +455,7 @@ void pot_click(ivec2 pos)
 	auto const & type = clicked->type();
 	if(clicked->growth < type.stages.back().growth)
 		return;
+	player_money += sellprice[clicked->_type];
 	plants.erase(clicked);
 	PlaySound(sounds.exhume);
 }
@@ -475,6 +479,7 @@ void seeds_click(ivec2 pos)
 		return;
 	if(clicked->_type != -1)
 		return;
+	player_money -= buyprice[seedtype];
 	clicked->_type = int(seedtype);
 	tool = Hand;
 	PlaySound(sounds.plant);
@@ -498,6 +503,8 @@ void game_do_event(SDL_Event const & ev)
 			auto key = ev.key.keysym.sym;
 			if(key == SDLK_ESCAPE)
 				tool = Hand;
+			if(key == SDLK_c)
+				catalog_click();
 
 			break;
 		}
@@ -550,10 +557,17 @@ void game_do_event(SDL_Event const & ev)
 					{
 						if(!contains(items[i], mouse_pos))
 							continue;
-						seedtype = i;
-						tool = Seeds;
-						gamestate = GardenView;
-						PlaySound(sounds.click);
+						if(buyprice[i] <= player_money)
+						{
+							seedtype = i;
+							tool = Seeds;
+							gamestate = GardenView;
+							PlaySound(sounds.click);
+						}
+						else
+						{
+							fprintf(stderr, "Play can't buy-sound here!\n");
+						}
 						break;
 					}
 				}
@@ -639,8 +653,6 @@ static void render_num(ivec2 pos, int number)
 	}
 }
 
-	static int frame;
-
 static void render_ui()
 {
 	SDL_SetRenderDrawColor(renderer, RED, 0xFF);
@@ -656,9 +668,14 @@ static void render_ui()
 	SDL_RenderDrawLine(renderer, 79, scroll_offset.y, 79, scroll_offset.y + 3);
 
 	if(gamestate == CatalogView)
+	{
 		BlitImage(textures.ui_catalog, ivec2());
 
-	      render_num(ivec2(10, 10), (frame++) / 60);
+		render_num(ivec2(74, 1), player_money);
+		render_num(ivec2(74, 11), buyprice[0]);
+		render_num(ivec2(74, 21), buyprice[1]);
+		render_num(ivec2(74, 31), buyprice[2]);
+	}
 
 	BlitImage(
 		textures.mouse_cursors[int(tool)],
