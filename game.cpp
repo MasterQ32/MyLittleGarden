@@ -82,6 +82,7 @@ struct
 
 	Image planthole;
 	Image font;
+	Image coins;
 } textures;
 
 struct
@@ -190,6 +191,7 @@ void game_init()
 	textures.ui_catalog = LoadImage("data/catalog.png");
 	textures.planthole  = LoadImage("data/planthole.png");
 	textures.font  = LoadImage("data/font.png");
+	textures.coins = LoadImage("data/coins.png");
 
 	sounds.click = LoadSound("data/click.wav");
 	sounds.dig = LoadSound("data/dig.wav");
@@ -635,18 +637,20 @@ static void render_acre()
 }
 
 // pos.x is right aligned
-static void render_num(ivec2 pos, int number)
+static void render_num(ivec2 pos, bool active, int number)
 {
+	int const y = active ? 5 : 0;
+	BlitImagePortion(textures.coins,pos,SDL_Rect { 0, y, 5, 5 });
 	pos.x -= 4;
 	if(number == 0)
 	{
-		BlitImagePortion(textures.font,pos,SDL_Rect { 0, 0, 4, 5 });
+		BlitImagePortion(textures.font,pos,SDL_Rect { 0, y, 4, 5 });
 	}
 	else
 	{
 		while(number > 0)
 		{
-			BlitImagePortion(textures.font,pos,SDL_Rect { 4*(number%10), 0, 4, 5 });
+			BlitImagePortion(textures.font,pos,SDL_Rect { 4*(number%10), y, 4, 5 });
 			number /= 10;
 			pos.x -= 4;
 		}
@@ -671,10 +675,10 @@ static void render_ui()
 	{
 		BlitImage(textures.ui_catalog, ivec2());
 
-		render_num(ivec2(74, 1), player_money);
-		render_num(ivec2(74, 11), buyprice[0]);
-		render_num(ivec2(74, 21), buyprice[1]);
-		render_num(ivec2(74, 31), buyprice[2]);
+		render_num(ivec2(74, 1), true, player_money);
+		render_num(ivec2(74, 11), player_money >= buyprice[0], buyprice[0]);
+		render_num(ivec2(74, 21), player_money >= buyprice[1], buyprice[1]);
+		render_num(ivec2(74, 31), player_money >= buyprice[2], buyprice[2]);
 	}
 
 	BlitImage(
