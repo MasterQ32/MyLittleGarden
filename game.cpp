@@ -75,13 +75,19 @@ struct Plant
 
 struct
 {
-	SDL_Texture * mouse_cursors[7];
+	Image mouse_cursors[7];
 
-	SDL_Texture * ui_overlay;
-	SDL_Texture * ui_catalog;
+	Image ui_overlay;
+	Image ui_catalog;
 
-	SDL_Texture * planthole;
+	Image planthole;
+	Image font;
 } textures;
+
+struct
+{
+	Sound spray, click, dig, splash, exhume, plant;
+} sounds;
 
 static ivec2 tool_offsets[7] =
 {
@@ -170,6 +176,14 @@ void game_init()
 	textures.ui_overlay = LoadImage("data/ui_overlay.png");
 	textures.ui_catalog = LoadImage("data/catalog.png");
 	textures.planthole  = LoadImage("data/planthole.png");
+	textures.font  = LoadImage("data/font.png");
+
+	sounds.click = LoadSound("data/click.wav");
+	sounds.dig = LoadSound("data/dig.wav");
+	sounds.splash = LoadSound("data/splash.wav");
+	sounds.spray = LoadSound("data/spray.wav");
+	sounds.exhume = LoadSound("data/exhume.wav");
+	sounds.plant = LoadSound("data/plant.wav");
 
 	acreTarget = CreateRenderTarget(69 + 65, 59 + 55);
 
@@ -359,6 +373,8 @@ void tool_click(int id)
 		return;
 	tool = Tool(id);
 	gamestate = GardenView;
+
+	PlaySound(sounds.click);
 }
 
 // 4 pixels distance
@@ -392,6 +408,8 @@ void shovel_click(ivec2 pos)
 	if(clicked != plants.end())
 		return;
 
+	PlaySound(sounds.dig);
+
 	emit(5, [&](Particle & p)
 	{
 		p.pos = pos;
@@ -414,6 +432,8 @@ void watering_can_click(ivec2 pos)
 		p.lifespan = 20 + rng(0, 30);
 	});
 
+	PlaySound(sounds.splash);
+
 	auto clicked = get_clicked(pos);
 	if(clicked == plants.end())
 		return;
@@ -429,12 +449,23 @@ void pot_click(ivec2 pos)
 		return;
 	if(clicked->_type == -1)
 		return;
+	auto const & type = clicked->type();
+	if(clicked->growth < type.stages.back().growth)
+		return;
 	plants.erase(clicked);
+	PlaySound(sounds.exhume);
 }
 
-void fertilizer_click(ivec2)
+void fertilizer_click(ivec2 pos)
 {
-
+	emit(7, [&](Particle & p)
+	{
+		p.pos = pos;
+		p.vel = 0.3f * normalize(vec2(-1.0, rng(-0.5, 1.0)));
+		p.color = Color { INDIGO };
+		p.lifespan = 20;
+	});
+	PlaySound(sounds.spray);
 }
 
 void seeds_click(ivec2 pos)
@@ -446,10 +477,12 @@ void seeds_click(ivec2 pos)
 		return;
 	clicked->_type = int(seedtype);
 	tool = Hand;
+	PlaySound(sounds.plant);
 }
 
 void catalog_click()
 {
+	PlaySound(sounds.click);
 	if(gamestate == CatalogView)
 		gamestate = GardenView;
 	else
@@ -520,6 +553,7 @@ void game_do_event(SDL_Event const & ev)
 						seedtype = i;
 						tool = Seeds;
 						gamestate = GardenView;
+						PlaySound(sounds.click);
 						break;
 					}
 				}
@@ -586,6 +620,27 @@ static void render_acre()
 	}
 }
 
+// pos.x is right aligned
+static void render_num(ivec2 pos, int number)
+{
+	pos.x -= 4;
+	if(number == 0)
+	{
+		BlitImagePortion(textures.font,pos,SDL_Rect { 0, 0, 4, 5 });
+	}
+	else
+	{
+		while(number > 0)
+		{
+			BlitImagePortion(textures.font,pos,SDL_Rect { 4*(number%10), 0, 4, 5 });
+			number /= 10;
+			pos.x -= 4;
+		}
+	}
+}
+
+	static int frame;
+
 static void render_ui()
 {
 	SDL_SetRenderDrawColor(renderer, RED, 0xFF);
@@ -602,6 +657,8 @@ static void render_ui()
 
 	if(gamestate == CatalogView)
 		BlitImage(textures.ui_catalog, ivec2());
+
+	      render_num(ivec2(10, 10), (frame++) / 60);
 
 	BlitImage(
 		textures.mouse_cursors[int(tool)],

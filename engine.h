@@ -22,7 +22,10 @@ glm::vec2 map_to_screen(glm::vec2 pos);
 glm::vec2 map_to_game(glm::vec2 pos);
 
 Image LoadImage(char const * fileName);
+
 void BlitImage(Image, glm::ivec2 pos);
+void BlitImagePortion(Image, glm::ivec2 pos, SDL_Rect const &);
+
 Image CreateRenderTarget(int w, int h);
 
 Sound LoadSound(char const * fileName);

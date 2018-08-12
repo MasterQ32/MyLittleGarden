@@ -156,6 +156,16 @@ void BlitImage(Image texture, glm::ivec2 pos)
 		&rect);
 }
 
+void BlitImagePortion(Image texture, glm::ivec2 pos, SDL_Rect const & portion)
+{
+	SDL_Rect rect { pos.x, pos.y, portion.w, portion.h };
+	SDL_RenderCopy(
+		renderer,
+		texture,
+		&portion,
+		&rect);
+}
+
 
 Sound LoadSound(char const * fileName)
 {
@@ -177,7 +187,7 @@ void PlaySound(Sound sound)
 {
 	if(sound == nullptr)
 		return;
-	Mix_PlayChannel(-1, sound, 1);
+	Mix_PlayChannel(-1, sound, 0);
 }
 
 void PlayMusic(Music music)
