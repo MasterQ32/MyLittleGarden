@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <functional>
 
 using namespace glm;
 
@@ -21,6 +22,21 @@ enum GameState
 {
 	GardenView,
 	CatalogView
+};
+
+struct Color { Uint8 r, g, b; };
+
+struct Particle
+{
+	int lifespan;
+	vec2 pos;
+	vec2 vel;
+	vec2 accel;
+	Color color;
+
+	Particle() : lifespan(1), pos(), vel(), accel(), color{BLUE}
+	{
+	}
 };
 
 struct GrowStage
@@ -85,6 +101,18 @@ static glm::ivec2 mouse_pos;
 static glm::ivec2 scroll_offset;
 
 static bool is_scrolling;
+
+static std::vector<Particle> particles;
+
+static void emit(int count, std::function<void(Particle&)> init)
+{
+	for(int i = 0; i < count; i++)
+	{
+		Particle p;
+		init(p);
+		particles.push_back(p);
+	}
+}
 
 bool game_has_save()
 {
@@ -308,6 +336,19 @@ void game_update()
 			plant.watering -= delta;
 		}
 	}
+
+	for(auto & part : particles)
+	{
+		part.lifespan -= 1;
+		part.pos += part.vel;
+		part.vel += part.accel;
+	}
+	particles.erase(
+		std::remove_if(
+			particles.begin(),
+			particles.end(),
+			[](Particle const & p) { return p.lifespan <= 0; }),
+		particles.end());
 }
 
 void tool_click(int id)
@@ -350,11 +391,29 @@ void shovel_click(ivec2 pos)
 	auto clicked = get_clicked(pos);
 	if(clicked != plants.end())
 		return;
+
+	emit(5, [&](Particle & p)
+	{
+		p.pos = pos;
+		p.vel = vec2(rng(-0.25, 0.25), rng(-0.5, -0.3));
+		p.accel = vec2(0, 0.03);
+		p.color = Color { BROWN };
+		p.lifespan = 30 + rng(0, 30);
+	});
+
 	plants.push_back(Plant { -1, pos, 0.0, 0.0 });
 }
 
 void watering_can_click(ivec2 pos)
 {
+	emit(10, [&](Particle & p)
+	{
+		p.pos = pos;
+		p.vel = vec2(rng(-0.2, -0.01), rng(-0.1, 0.3));
+		p.color = Color { BLUE };
+		p.lifespan = 20 + rng(0, 30);
+	});
+
 	auto clicked = get_clicked(pos);
 	if(clicked == plants.end())
 		return;
@@ -519,6 +578,12 @@ static void render_acre()
 
 	for(auto const & plant : plants)
 		draw_plant(plant);
+
+	for(auto const & p : particles)
+	{
+		SDL_SetRenderDrawColor(renderer, p.color.r, p.color.g, p.color.b, 0xFF);
+		SDL_RenderDrawPoint(renderer, int(p.pos.x + 0.5f), int(p.pos.y + 0.5f));
+	}
 }
 
 static void render_ui()
