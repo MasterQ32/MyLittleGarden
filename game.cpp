@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <algorithm>
 
 using namespace glm;
 
@@ -12,7 +13,8 @@ enum Tool
 	Shovel,
 	WateringCan,
 	Pot,
-	Fertilizer
+	Fertilizer,
+	Seeds
 };
 
 struct GrowStage
@@ -29,9 +31,10 @@ struct PlantType
 	std::vector<GrowStage> stages;
 };
 
-static std::array<PlantType,1> plantTypes;
+static std::array<PlantType,3> plantTypes;
 
 static Tool tool;
+static int seedtype;
 
 struct Plant
 {
@@ -48,10 +51,22 @@ struct Plant
 
 struct
 {
-	SDL_Texture * mouse_cursors[6];
+	SDL_Texture * mouse_cursors[7];
 
 	SDL_Texture * ui_overlay;
+
+	SDL_Texture * planthole;
 } textures;
+
+static ivec2 tool_offsets[7] =
+{
+	ivec2(0,0),
+    ivec2(0,0),
+    ivec2(0,2),
+    ivec2(2,1),
+    ivec2(2,2),
+    ivec2(3,3),
+};
 
 static std::vector<Plant> plants;
 
@@ -62,6 +77,51 @@ static glm::ivec2 scroll_offset;
 
 static bool is_scrolling;
 
+bool game_has_save()
+{
+	FILE * f = fopen("savegame.dat", "rb");
+	if(f != nullptr)
+		fclose(f);
+	return (f != nullptr);
+}
+
+void game_load()
+{
+	FILE * f = fopen("savegame.dat", "rb");
+	if(f == nullptr)
+		die("Could not open savegame.dat");
+
+	uint32_t count, magic;
+	fread(&magic, sizeof magic, 1, f);
+	if(magic != 0xBADEAFFE)
+		die("Failed to load game: Is not a badeaffe!");
+
+	fread(&count, sizeof count, 1, f);
+	for(uint32_t i = 0; i < count; i++)
+	{
+		Plant plant;
+		fread(&plant, sizeof(plant), 1, f);
+		plants.push_back(plant);
+	}
+	fclose(f);
+}
+
+void game_save()
+{
+	FILE * f = fopen("savegame.dat", "wb");
+	if(f == nullptr)
+		die("Could not open savegame.dat");
+
+	uint32_t count = uint32_t(plants.size());
+	uint32_t magic = 0xBADEAFFE;
+	fwrite(&magic, sizeof magic, 1, f);
+	fwrite(&count, sizeof count, 1, f);
+
+	fwrite(plants.data(), sizeof(Plant), plants.size(), f);
+
+	fclose(f);
+}
+
 void game_init()
 {
 	textures.mouse_cursors[Hand] = LoadImage("data/mouse_hand.png");
@@ -69,7 +129,9 @@ void game_init()
 	textures.mouse_cursors[WateringCan] = LoadImage("data/mouse_watering_can.png");
 	textures.mouse_cursors[Pot] = LoadImage("data/mouse_pot.png");
 	textures.mouse_cursors[Fertilizer] = LoadImage("data/mouse_fertilizer.png");
+	textures.mouse_cursors[Seeds] = LoadImage("data/seeds.png");
 	textures.ui_overlay = LoadImage("data/ui_overlay.png");
+	textures.planthole = LoadImage("data/planthole.png");
 
 	acreTarget = CreateRenderTarget(69 + 65, 59 + 55);
 
@@ -101,17 +163,134 @@ void game_init()
 		}
 	};
 
+	plantTypes[1] = PlantType
+	{
+		"Rotbeer-Strauch",
+		0.01,
+		{
+	        GrowStage {
+				0.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage0.png"),
+			},
+	        GrowStage {
+				1.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage1.png"),
+			},
+	        GrowStage {
+				2.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage2.png"),
+			},
+	        GrowStage {
+				3.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage3.png"),
+			},
+	        GrowStage {
+				4.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage4.png"),
+			},
+	        GrowStage {
+				5.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage5.png"),
+			},
+	        GrowStage {
+				6.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage6.png"),
+			},
+	        GrowStage {
+				7.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage7.png"),
+			},
+	        GrowStage {
+				8.0, ivec2(3, 11),
+				LoadImage("data/plant1_stage8.png"),
+			},
+		}
+	};
 
+	plantTypes[2] = PlantType
+	{
+		"Citromben-Baum",
+		0.01,
+		{
+	        GrowStage {
+				0.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage0.png"),
+			},
+	        GrowStage {
+				1.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage1.png"),
+			},
+	        GrowStage {
+				2.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage2.png"),
+			},
+	        GrowStage {
+				3.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage3.png"),
+			},
+	        GrowStage {
+				4.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage4.png"),
+			},
+	        GrowStage {
+				5.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage5.png"),
+			},
+	        GrowStage {
+				6.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage6.png"),
+			},
+	        GrowStage {
+				7.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage7.png"),
+			},
+	        GrowStage {
+				8.0, ivec2(3, 11),
+				LoadImage("data/plant2_stage8.png"),
+			},
+		}
+	};
+
+#if defined(RELEASE)
+	PlayMusic(LoadMusic("data/truth_in_the_stones.mp3"));
+#endif
+
+	if(game_has_save())
+		game_load();
+	else
+		plants.clear();
+	/*
+	plants.push_back(Plant { -1, ivec2(10, 20), 0.0, 0.0 });
 	plants.push_back(Plant {
-		0, ivec2(20, 20), 0.0, 10.0
+		0, ivec2(20, 20), 0.0, 3.0
 	});
+	plants.push_back(Plant {
+		1, ivec2(30, 20), 0.0, 4.0
+	});
+	plants.push_back(Plant {
+		2, ivec2(40, 20), 0.0, 2.0
+	});
+	*/
+}
+
+void game_shutdown()
+{
+	game_save();
 }
 
 void game_update()
 {
+	std::sort(
+		plants.begin(), plants.end(),
+		[](Plant const & l, Plant const & r)
+		{
+			return l.position.y < r.position.y;
+		});
 	// Update all plants
 	for(auto & plant : plants)
 	{
+		if(plant._type < 0)
+			continue;
 		auto delta = min(plant.watering, plant.type().growspeed);
 		if(delta > 0)
 		{
@@ -130,15 +309,93 @@ void tool_click(int id)
 	tool = Tool(id);
 }
 
-void hand_click()
+// 4 pixels distance
+static float mouse_sensitivity = 4.0;
+
+static Plant * get_clicked(ivec2 pos)
+{
+	Plant * nearest = nullptr;
+	float dist = std::numeric_limits<decltype(dist)>::max();
+	for(auto & plant : plants)
+	{
+		auto d = distance(vec2(pos), vec2(plant.position));
+		if(d > dist)
+			continue;
+		if(d > mouse_sensitivity)
+			continue;
+		nearest = &plant;
+		dist = d;
+	}
+	return nearest;
+}
+
+void hand_click(ivec2)
 {
 	is_scrolling = true;
+}
+
+void shovel_click(ivec2 pos)
+{
+	auto * clicked = get_clicked(pos);
+	if(clicked != nullptr)
+		return;
+	plants.push_back(Plant { -1, pos, 0.0, 0.0 });
+}
+
+void watering_can_click(ivec2 pos)
+{
+	auto * clicked = get_clicked(pos);
+	if(clicked == nullptr)
+		return;
+	if(clicked->_type == -1)
+		return;
+	clicked->watering += rng(1.78, 2.44);
+}
+
+void pot_click(ivec2)
+{
+
+}
+
+void fertilizer_click(ivec2)
+{
+
+}
+
+void seeds_click(ivec2 pos)
+{
+	auto * clicked = get_clicked(pos);
+	if(clicked == nullptr)
+		return;
+	if(clicked->_type != -1)
+		return;
+	clicked->_type = seedtype;
+	tool = Hand;
 }
 
 void game_do_event(SDL_Event const & ev)
 {
 	switch(ev.type)
 	{
+		case SDL_KEYDOWN:
+		{
+			if(ev.key.keysym.sym == SDLK_1)
+			{
+				tool = Seeds;
+				seedtype = 0;
+			}
+			if(ev.key.keysym.sym == SDLK_2)
+			{
+				tool = Seeds;
+				seedtype = 1;
+			}
+			if(ev.key.keysym.sym == SDLK_3)
+			{
+				tool = Seeds;
+				seedtype = 2;
+			}
+			break;
+		}
 		case SDL_MOUSEBUTTONDOWN:
 		{
 			mouse_pos = map_to_game(ivec2(ev.motion.x, ev.motion.y));
@@ -148,13 +405,15 @@ void game_do_event(SDL_Event const & ev)
 			}
 			else if(mouse_pos.x >= 10 && mouse_pos.x < 79 && mouse_pos.y < 59)
 			{
+				auto pos = mouse_pos - ivec2(10, 0) - scroll_offset;
 				switch(tool)
 				{
-				case Hand: hand_click(); break;
-				case Shovel: break;
-				case WateringCan: break;
-				case Pot: break;
-				case Fertilizer: break;
+				case Hand: hand_click(pos); break;
+				case Shovel: shovel_click(pos); break;
+				case WateringCan: watering_can_click(pos); break;
+				case Pot: pot_click(pos); break;
+				case Fertilizer: fertilizer_click(pos); break;
+				case Seeds: seeds_click(pos); break;
 				}
 			}
 			break;
@@ -183,6 +442,14 @@ void game_do_event(SDL_Event const & ev)
 
 static void draw_plant(Plant const & plant)
 {
+	if(plant._type < 0)
+	{
+		BlitImage(
+			textures.planthole,
+			plant.position - ivec2(2,1));
+		return;
+	}
+
 	GrowStage const * stage = &plant.type().stages[0];
 	for(auto const & st : plant.type().stages)
 	{
@@ -218,7 +485,9 @@ static void render_ui()
 	SDL_RenderDrawLine(renderer, 10 + scroll_offset.x, 59, 13 + scroll_offset.x, 59);
 	SDL_RenderDrawLine(renderer, 79, scroll_offset.y, 79, scroll_offset.y + 3);
 
-	BlitImage(textures.mouse_cursors[int(tool)], mouse_pos);
+	BlitImage(
+		textures.mouse_cursors[int(tool)],
+		mouse_pos - tool_offsets[int(tool)]);
 }
 
 void game_render()

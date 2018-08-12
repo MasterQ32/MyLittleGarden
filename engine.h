@@ -10,6 +10,10 @@
 extern SDL_Renderer * renderer;
 extern SDL_Window * window;
 
+using Sound = Mix_Chunk * ;
+using Music = Mix_Music * ;
+using Image = SDL_Texture * ;
+
 void quit();
 
 [[noreturn]] void die(char const * msg);
@@ -17,9 +21,15 @@ void quit();
 glm::vec2 map_to_screen(glm::vec2 pos);
 glm::vec2 map_to_game(glm::vec2 pos);
 
-SDL_Texture * LoadImage(char const * fileName);
-void BlitImage(SDL_Texture * texture, glm::ivec2 pos);
-SDL_Texture * CreateRenderTarget(int w, int h);
+Image LoadImage(char const * fileName);
+void BlitImage(Image, glm::ivec2 pos);
+Image CreateRenderTarget(int w, int h);
+
+Sound LoadSound(char const * fileName);
+void PlaySound(Sound sound);
+
+Music LoadMusic(char const * fileName);
+void PlayMusic(Music music);
 
 class RenderTargetGuard
 {
@@ -37,5 +47,11 @@ public:
 		SDL_SetRenderTarget(renderer, this->previous);
 	}
 };
+
+template<typename T>
+static inline T rng(T min, T max)
+{
+	return min + ((max - min) * rand()) / RAND_MAX;
+}
 
 #endif // ENGINE_H

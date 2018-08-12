@@ -25,6 +25,14 @@ int main()
 		die(IMG_GetError());
 	atexit(IMG_Quit);
 
+	if(Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 1024) < 0)
+		die(Mix_GetError());
+	atexit(Mix_CloseAudio);
+
+	if(Mix_Init(MIX_INIT_MP3) == 0)
+		die(Mix_GetError());
+	atexit(Mix_Quit);
+
 	window = SDL_CreateWindow(
 		"My Little Garden - Growing Plants Is Magic!",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -48,6 +56,7 @@ int main()
 
 	auto next_update = SDL_GetTicks();
 	auto const frametime = 1000.0 / 60.0;
+	auto const sleeptime = 10;
 	do
 	{
 		SDL_Event e;
@@ -84,7 +93,10 @@ int main()
 
 		SDL_RenderPresent(renderer);
 
+		SDL_Delay(sleeptime);
 	} while(!wants_quit);
+
+	game_shutdown();
 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
@@ -111,7 +123,7 @@ glm::vec2 map_to_game(glm::vec2 pos)
 }
 
 
-SDL_Texture * LoadImage(char const * fileName)
+Image LoadImage(char const * fileName)
 {
 	auto * tex = IMG_LoadTexture(renderer, fileName);
 	if(!tex)
@@ -119,8 +131,19 @@ SDL_Texture * LoadImage(char const * fileName)
 	return tex;
 }
 
+Image CreateRenderTarget(int w, int h)
+{
+	auto * tex = SDL_CreateTexture(
+			renderer,
+			SDL_PIXELFORMAT_ARGB8888,
+			SDL_TEXTUREACCESS_TARGET,
+			w, h);
+	if(tex == nullptr)
+		die(SDL_GetError());
+	return tex;
+}
 
-void BlitImage(SDL_Texture * texture, glm::ivec2 pos)
+void BlitImage(Image texture, glm::ivec2 pos)
 {
 	SDL_Rect rect { pos.x, pos.y, 8, 8 };
 
@@ -133,14 +156,33 @@ void BlitImage(SDL_Texture * texture, glm::ivec2 pos)
 		&rect);
 }
 
-SDL_Texture * CreateRenderTarget(int w, int h)
+
+Sound LoadSound(char const * fileName)
 {
-	auto * tex = SDL_CreateTexture(
-			renderer,
-			SDL_PIXELFORMAT_ARGB8888,
-			SDL_TEXTUREACCESS_TARGET,
-			w, h);
-	if(tex == nullptr)
-		die(SDL_GetError());
-	return tex;
+	auto * chunk = Mix_LoadWAV(fileName);
+	if(chunk == nullptr)
+		die(Mix_GetError());
+	return chunk;
+}
+
+Music LoadMusic(char const * fileName)
+{
+	auto * mus = Mix_LoadMUS(fileName);
+	if(mus == nullptr)
+		die(Mix_GetError());
+	return mus;
+}
+
+void PlaySound(Sound sound)
+{
+	if(sound == nullptr)
+		return;
+	Mix_PlayChannel(-1, sound, 1);
+}
+
+void PlayMusic(Music music)
+{
+	if(music == nullptr)
+		return;
+	Mix_FadeInMusic(music, -1, 200);
 }
