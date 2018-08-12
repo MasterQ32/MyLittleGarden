@@ -143,6 +143,13 @@ Image CreateRenderTarget(int w, int h)
 	return tex;
 }
 
+glm::ivec2 GetSize(Image img)
+{
+	glm::ivec2 result;
+	SDL_QueryTexture(img, nullptr, nullptr, &result.x, &result.y);
+	return result;
+}
+
 void BlitImage(Image texture, glm::ivec2 pos)
 {
 	SDL_Rect rect { pos.x, pos.y, 8, 8 };

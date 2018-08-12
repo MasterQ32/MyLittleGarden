@@ -115,11 +115,11 @@ static int32_t player_money = 5;
 
 static std::array<int, plantTypes.size()> buyprice =
 {
-	4, 6, 9, 11, 2
+	2, 4, 6, 9, 11
 };
 static std::array<int, plantTypes.size()> sellprice =
 {
-	5, 8, 12, 15, 3
+	3, 5, 8, 12, 15
 };
 
 static void emit(int count, std::function<void(Particle&)> init)
@@ -181,10 +181,6 @@ void game_save()
 
 void game_init()
 {
-#if !defined(RELEASE)
-	player_money = 999;
-#endif
-
 	textures.mouse_cursors[Hand] = LoadImage("data/mouse_hand.png");
 	textures.mouse_cursors[Shovel] = LoadImage("data/mouse_shovel.png");
 	textures.mouse_cursors[WateringCan] = LoadImage("data/mouse_watering_can.png");
@@ -404,9 +400,7 @@ void game_init()
 		}
 	};
 
-#if defined(RELEASE)
 	PlayMusic(LoadMusic("data/truth_in_the_stones.mp3"));
-#endif
 
 	if(game_has_save())
 		game_load();
@@ -541,6 +535,19 @@ void pot_click(ivec2 pos)
 	auto const & type = clicked->type();
 	if(clicked->growth < type.stages.back().growth)
 		return;
+
+	auto const & stage = type.stages.back();
+
+ 	ivec2 size = GetSize(stage.graphics);
+
+	emit(max(1, int(0.1 * size.x * size.y)), [&](Particle & p)
+	{
+		p.pos = vec2(clicked->position - stage.origin) + vec2(rng(0.0f,float(size.x)), rng(0.0f,float(size.y)));
+		p.vel = 0.1f * normalize(vec2(rng(-1.0, 1.0), rng(0.0, 1.0)));
+		p.color = Color { GREEN };
+		p.lifespan = rng(40, 90);
+	});
+
 	player_money += sellprice[clicked->_type];
 	plants.erase(clicked);
 	PlaySound(sounds.exhume);

@@ -23,6 +23,8 @@ glm::vec2 map_to_game(glm::vec2 pos);
 
 Image LoadImage(char const * fileName);
 
+glm::ivec2 GetSize(Image img);
+
 void BlitImage(Image, glm::ivec2 pos);
 void BlitImagePortion(Image, glm::ivec2 pos, SDL_Rect const &);
 
