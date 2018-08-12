@@ -53,7 +53,7 @@ struct PlantType
 	std::vector<GrowStage> stages;
 };
 
-static std::array<PlantType,3> plantTypes;
+static std::array<PlantType,5> plantTypes;
 
 static Tool tool;
 static uint seedtype;
@@ -115,11 +115,11 @@ static int32_t player_money = 5;
 
 static std::array<int, plantTypes.size()> buyprice =
 {
-	4, 6, 9
+	4, 6, 9, 11, 2
 };
 static std::array<int, plantTypes.size()> sellprice =
 {
-	5, 8, 12
+	5, 8, 12, 15, 3
 };
 
 static void emit(int count, std::function<void(Particle&)> init)
@@ -181,6 +181,10 @@ void game_save()
 
 void game_init()
 {
+#if !defined(RELEASE)
+	player_money = 999;
+#endif
+
 	textures.mouse_cursors[Hand] = LoadImage("data/mouse_hand.png");
 	textures.mouse_cursors[Shovel] = LoadImage("data/mouse_shovel.png");
 	textures.mouse_cursors[WateringCan] = LoadImage("data/mouse_watering_can.png");
@@ -316,6 +320,86 @@ void game_init()
 	        GrowStage {
 				8.0, ivec2(3, 11),
 				LoadImage("data/plant2_stage8.png"),
+			},
+		}
+	};
+
+	plantTypes[3] = PlantType
+	{
+		"Rankum",
+		0.0075,
+		{
+	        GrowStage {
+				0.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage0.png"),
+			},
+	        GrowStage {
+				1.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage1.png"),
+			},
+	        GrowStage {
+				2.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage2.png"),
+			},
+	        GrowStage {
+				3.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage3.png"),
+			},
+	        GrowStage {
+				4.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage4.png"),
+			},
+	        GrowStage {
+				5.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage5.png"),
+			},
+	        GrowStage {
+				6.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage6.png"),
+			},
+	        GrowStage {
+				7.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage7.png"),
+			},
+	        GrowStage {
+				8.0, ivec2(5, 11),
+				LoadImage("data/plant3_stage8.png"),
+			},
+		}
+	};
+
+	plantTypes[4] = PlantType
+	{
+		"Zennie",
+		0.012,
+		{
+	        GrowStage {
+				0.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage0.png"),
+			},
+	        GrowStage {
+				1.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage1.png"),
+			},
+	        GrowStage {
+				2.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage2.png"),
+			},
+	        GrowStage {
+				3.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage3.png"),
+			},
+	        GrowStage {
+				4.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage4.png"),
+			},
+	        GrowStage {
+				5.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage5.png"),
+			},
+	        GrowStage {
+				6.0, ivec2(5, 11),
+				LoadImage("data/plant4_stage6.png"),
 			},
 		}
 	};
@@ -549,15 +633,9 @@ void game_do_event(SDL_Event const & ev)
 				}
 				else if(gamestate == CatalogView)
 				{
-					std::array<SDL_Rect,3> items =
+					for(unsigned int i = 0; i < plantTypes.size(); i++)
 					{
-					    SDL_Rect { 11,  8, 9, 9 },
-					    SDL_Rect { 11, 18, 9, 9 },
-					    SDL_Rect { 11, 28, 9, 9 },
-					};
-					for(unsigned int i = 0; i < items.size(); i++)
-					{
-						if(!contains(items[i], mouse_pos))
+						if(!contains(SDL_Rect { 11, int(10 * i + 8), 9, 9 }, mouse_pos))
 							continue;
 						if(buyprice[i] <= player_money)
 						{
@@ -676,9 +754,8 @@ static void render_ui()
 		BlitImage(textures.ui_catalog, ivec2());
 
 		render_num(ivec2(74, 1), true, player_money);
-		render_num(ivec2(74, 11), player_money >= buyprice[0], buyprice[0]);
-		render_num(ivec2(74, 21), player_money >= buyprice[1], buyprice[1]);
-		render_num(ivec2(74, 31), player_money >= buyprice[2], buyprice[2]);
+		for(int i = 0; i < 5; i++)
+			render_num(ivec2(74, 11 + 10*i), player_money >= buyprice[i], buyprice[i]);
 	}
 
 	BlitImage(
