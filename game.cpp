@@ -17,6 +17,12 @@ enum Tool
 	Seeds
 };
 
+enum GameState
+{
+	GardenView,
+	CatalogView
+};
+
 struct GrowStage
 {
 	double growth;
@@ -36,6 +42,8 @@ static std::array<PlantType,3> plantTypes;
 static Tool tool;
 static int seedtype;
 
+static GameState gamestate;
+
 struct Plant
 {
 	int _type;
@@ -54,6 +62,7 @@ struct
 	SDL_Texture * mouse_cursors[7];
 
 	SDL_Texture * ui_overlay;
+	SDL_Texture * ui_catalog;
 
 	SDL_Texture * planthole;
 } textures;
@@ -131,7 +140,8 @@ void game_init()
 	textures.mouse_cursors[Fertilizer] = LoadImage("data/mouse_fertilizer.png");
 	textures.mouse_cursors[Seeds] = LoadImage("data/seeds.png");
 	textures.ui_overlay = LoadImage("data/ui_overlay.png");
-	textures.planthole = LoadImage("data/planthole.png");
+	textures.ui_catalog = LoadImage("data/catalog.png");
+	textures.planthole  = LoadImage("data/planthole.png");
 
 	acreTarget = CreateRenderTarget(69 + 65, 59 + 55);
 
@@ -307,6 +317,7 @@ void tool_click(int id)
 	if(mouse_pos.y%10==0 || mouse_pos.y%10==9)
 		return;
 	tool = Tool(id);
+	gamestate = GardenView;
 }
 
 // 4 pixels distance
@@ -373,35 +384,64 @@ void seeds_click(ivec2 pos)
 	tool = Hand;
 }
 
+void catalog_click()
+{
+	if(gamestate == CatalogView)
+		gamestate = GardenView;
+	else
+		gamestate = CatalogView;
+}
+
 void game_do_event(SDL_Event const & ev)
 {
 	switch(ev.type)
 	{
 		case SDL_KEYDOWN:
 		{
-			if(ev.key.keysym.sym == SDLK_1)
+			auto key = ev.key.keysym.sym;
+			if(key == SDLK_ESCAPE)
+				tool = Hand;
+
+#if !defined(RELEASE)
+			if(key == SDLK_1)
 			{
 				tool = Seeds;
 				seedtype = 0;
 			}
-			if(ev.key.keysym.sym == SDLK_2)
+			if(key == SDLK_2)
 			{
 				tool = Seeds;
 				seedtype = 1;
 			}
-			if(ev.key.keysym.sym == SDLK_3)
+			if(key == SDLK_3)
 			{
 				tool = Seeds;
 				seedtype = 2;
 			}
+#endif
 			break;
 		}
 		case SDL_MOUSEBUTTONDOWN:
 		{
+			if(ev.button.button == SDL_BUTTON_RIGHT)
+			{
+				tool = Hand;
+				break;
+			}
+
 			mouse_pos = map_to_game(ivec2(ev.motion.x, ev.motion.y));
 			if(mouse_pos.x < 10 && mouse_pos.y < 46)
 			{
+				// TODO: Fix off-by-one
 				tool_click(mouse_pos.y / 10);
+			}
+			else if(mouse_pos.x < 10 && mouse_pos.y >= 50)
+			{
+				if(mouse_pos.x%10 == 0 && mouse_pos.x%10 == 9)
+					break;
+				if(mouse_pos.y%10 == 0 && mouse_pos.y%10 == 9)
+					break;
+				catalog_click();
 			}
 			else if(mouse_pos.x >= 10 && mouse_pos.x < 79 && mouse_pos.y < 59)
 			{
@@ -477,7 +517,8 @@ static void render_ui()
 	SDL_SetRenderDrawColor(renderer, RED, 0xFF);
 	SDL_RenderClear(renderer);
 
-	BlitImage(acreTarget, ivec2(10, 0) - scroll_offset);
+	if(gamestate == GardenView)
+		BlitImage(acreTarget, ivec2(10, 0) - scroll_offset);
 
 	BlitImage(textures.ui_overlay, ivec2());
 
@@ -485,13 +526,17 @@ static void render_ui()
 	SDL_RenderDrawLine(renderer, 10 + scroll_offset.x, 59, 13 + scroll_offset.x, 59);
 	SDL_RenderDrawLine(renderer, 79, scroll_offset.y, 79, scroll_offset.y + 3);
 
+	if(gamestate == CatalogView)
+		BlitImage(textures.ui_catalog, ivec2());
+
 	BlitImage(
 		textures.mouse_cursors[int(tool)],
-		mouse_pos - tool_offsets[int(tool)]);
+		mouse_pos + tool_offsets[int(tool)]);
 }
 
 void game_render()
 {
-	render_acre();
+	if(gamestate == GardenView)
+		render_acre();
 	render_ui();
 }
