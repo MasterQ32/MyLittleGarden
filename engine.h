@@ -54,4 +54,13 @@ static inline T rng(T min, T max)
 	return min + ((max - min) * rand()) / RAND_MAX;
 }
 
+static bool contains(SDL_Rect const & rect, glm::ivec2 pos)
+{
+	if(pos.x < rect.x || pos.y < rect.y)
+		return false;
+	if(pos.x >= rect.x + rect.w || pos.y >= rect.y + rect.h)
+		return false;
+	return true;
+}
+
 #endif // ENGINE_H

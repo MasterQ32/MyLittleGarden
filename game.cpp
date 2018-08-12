@@ -40,7 +40,7 @@ struct PlantType
 static std::array<PlantType,3> plantTypes;
 
 static Tool tool;
-static int seedtype;
+static uint seedtype;
 
 static GameState gamestate;
 
@@ -314,7 +314,7 @@ void tool_click(int id)
 {
 	if(mouse_pos.x == 0 || mouse_pos.x == 9)
 		return;
-	if(mouse_pos.y%10==0 || mouse_pos.y%10==9)
+	if((mouse_pos.y-1)%9==8)
 		return;
 	tool = Tool(id);
 	gamestate = GardenView;
@@ -323,18 +323,18 @@ void tool_click(int id)
 // 4 pixels distance
 static float mouse_sensitivity = 4.0;
 
-static Plant * get_clicked(ivec2 pos)
+static auto get_clicked(ivec2 pos)
 {
-	Plant * nearest = nullptr;
+	auto nearest = plants.end();
 	float dist = std::numeric_limits<decltype(dist)>::max();
-	for(auto & plant : plants)
+	for(auto it = plants.begin(); it != plants.end(); it++)
 	{
-		auto d = distance(vec2(pos), vec2(plant.position));
+		auto d = distance(vec2(pos), vec2(it->position));
 		if(d > dist)
 			continue;
 		if(d > mouse_sensitivity)
 			continue;
-		nearest = &plant;
+		nearest = it;
 		dist = d;
 	}
 	return nearest;
@@ -347,25 +347,30 @@ void hand_click(ivec2)
 
 void shovel_click(ivec2 pos)
 {
-	auto * clicked = get_clicked(pos);
-	if(clicked != nullptr)
+	auto clicked = get_clicked(pos);
+	if(clicked != plants.end())
 		return;
 	plants.push_back(Plant { -1, pos, 0.0, 0.0 });
 }
 
 void watering_can_click(ivec2 pos)
 {
-	auto * clicked = get_clicked(pos);
-	if(clicked == nullptr)
+	auto clicked = get_clicked(pos);
+	if(clicked == plants.end())
 		return;
 	if(clicked->_type == -1)
 		return;
 	clicked->watering += rng(1.78, 2.44);
 }
 
-void pot_click(ivec2)
+void pot_click(ivec2 pos)
 {
-
+	auto clicked = get_clicked(pos);
+	if(clicked == plants.end())
+		return;
+	if(clicked->_type == -1)
+		return;
+	plants.erase(clicked);
 }
 
 void fertilizer_click(ivec2)
@@ -375,12 +380,12 @@ void fertilizer_click(ivec2)
 
 void seeds_click(ivec2 pos)
 {
-	auto * clicked = get_clicked(pos);
-	if(clicked == nullptr)
+	auto clicked = get_clicked(pos);
+	if(clicked == plants.end())
 		return;
 	if(clicked->_type != -1)
 		return;
-	clicked->_type = seedtype;
+	clicked->_type = int(seedtype);
 	tool = Hand;
 }
 
@@ -402,23 +407,6 @@ void game_do_event(SDL_Event const & ev)
 			if(key == SDLK_ESCAPE)
 				tool = Hand;
 
-#if !defined(RELEASE)
-			if(key == SDLK_1)
-			{
-				tool = Seeds;
-				seedtype = 0;
-			}
-			if(key == SDLK_2)
-			{
-				tool = Seeds;
-				seedtype = 1;
-			}
-			if(key == SDLK_3)
-			{
-				tool = Seeds;
-				seedtype = 2;
-			}
-#endif
 			break;
 		}
 		case SDL_MOUSEBUTTONDOWN:
@@ -430,10 +418,10 @@ void game_do_event(SDL_Event const & ev)
 			}
 
 			mouse_pos = map_to_game(ivec2(ev.motion.x, ev.motion.y));
-			if(mouse_pos.x < 10 && mouse_pos.y < 46)
+			if(mouse_pos.y > 0 && mouse_pos.x < 10 && mouse_pos.y < 46)
 			{
 				// TODO: Fix off-by-one
-				tool_click(mouse_pos.y / 10);
+				tool_click((mouse_pos.y - 1) / 9);
 			}
 			else if(mouse_pos.x < 10 && mouse_pos.y >= 50)
 			{
@@ -445,15 +433,36 @@ void game_do_event(SDL_Event const & ev)
 			}
 			else if(mouse_pos.x >= 10 && mouse_pos.x < 79 && mouse_pos.y < 59)
 			{
-				auto pos = mouse_pos - ivec2(10, 0) - scroll_offset;
-				switch(tool)
+				if(gamestate == GardenView)
 				{
-				case Hand: hand_click(pos); break;
-				case Shovel: shovel_click(pos); break;
-				case WateringCan: watering_can_click(pos); break;
-				case Pot: pot_click(pos); break;
-				case Fertilizer: fertilizer_click(pos); break;
-				case Seeds: seeds_click(pos); break;
+					auto pos = mouse_pos - ivec2(10, 0) + scroll_offset;
+					switch(tool)
+					{
+					case Hand: hand_click(pos); break;
+					case Shovel: shovel_click(pos); break;
+					case WateringCan: watering_can_click(pos); break;
+					case Pot: pot_click(pos); break;
+					case Fertilizer: fertilizer_click(pos); break;
+					case Seeds: seeds_click(pos); break;
+					}
+				}
+				else if(gamestate == CatalogView)
+				{
+					std::array<SDL_Rect,3> items =
+					{
+					    SDL_Rect { 11,  8, 9, 9 },
+					    SDL_Rect { 11, 18, 9, 9 },
+					    SDL_Rect { 11, 28, 9, 9 },
+					};
+					for(unsigned int i = 0; i < items.size(); i++)
+					{
+						if(!contains(items[i], mouse_pos))
+							continue;
+						seedtype = i;
+						tool = Seeds;
+						gamestate = GardenView;
+						break;
+					}
 				}
 			}
 			break;
@@ -531,7 +540,7 @@ static void render_ui()
 
 	BlitImage(
 		textures.mouse_cursors[int(tool)],
-		mouse_pos + tool_offsets[int(tool)]);
+		mouse_pos - tool_offsets[int(tool)]);
 }
 
 void game_render()
